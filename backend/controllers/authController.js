@@ -83,3 +83,37 @@ exports.login = async (req, res) => {
     res.status(500).json({ error: 'Login failed' });
   }
 };
+exports.updateProfile = async (req, res) => {
+  try {
+    const userId = req.user.id; // from auth middleware
+    const { name, email, password } = req.body;
+
+    // Validate inputs here as needed (optional)
+
+    // Find the user by primary key
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Update fields conditionally
+    if (name) user.name = name;
+    if (email) user.email = email;
+
+    if (password) {
+      // Hash the password before saving
+      const hashedPassword = await bcrypt.hash(password, 10);
+      user.password = hashedPassword;
+    }
+
+    await user.save(); // Save updated user
+
+    // Optionally exclude password from response
+    const { password: _, ...userData } = user.toJSON();
+
+    res.json({ message: 'Profile updated successfully', user: userData });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+};

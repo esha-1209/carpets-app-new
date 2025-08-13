@@ -143,10 +143,66 @@ exports.getAllOrders = async (req, res) => {
       ],
       order: [['createdAt', 'DESC']],
     });
-
+  
     res.status(200).json({ orders });
   } catch (error) {
     console.error('Error fetching all orders:', error);
+    res.status(500).json({ error: 'Internal server error' });}
+
+  // CANCEL ORDER (Buyer)
+exports.cancelOrder = async (req, res) => {
+  try {
+    const { id } = req.params; // order ID from URL
+    const userId = req.user.id;
+    const order = await Order.findByPk(id);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    // Check if user owns the order
+    if (order.UserId !== userId) {
+      return res.status(403).json({ error: 'Not authorized to cancel this order' });
+    }
+    // Only pending orders can be cancelled
+    if (order.status !== 'pending') {
+      return res.status(400).json({ error: 'Order cannot be cancelled' });
+    }
+    order.status = 'cancelled';
+    await order.save();
+    res.status(200).json({ message: 'Order cancelled successfully' });
+  } catch (error) {
+    console.error('Error cancelling order:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+// UPDATE ORDER STATUS (Admin)
+exports.updateOrderStatus = async (req, res) => {
+  try {
+    const { id } = req.params; // order ID
+    const { status } = req.body;
+
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access only' });
+    }
+
+    // Only allow specific statuses
+    const allowedStatuses = ['pending', 'shipped', 'delivered', 'cancelled'];
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status value' });
+    }
+
+    const order = await Order.findByPk(id);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    order.status = status;
+    await order.save();
+
+    res.status(200).json({ message: `Order status updated to ${status}` });
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+  }
